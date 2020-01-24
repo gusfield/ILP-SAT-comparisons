@@ -1,3 +1,7 @@
+# Jan. 23, 2020 added the feature of writing out the target clause. 
+# Modified so that the clause implementing that constraint that the number of Dt operations
+# must not be more than the given target. This clause is the last one in the SAT file generated.
+#
 # SATsimhistory.pl October 6,  2019
 #
 # This generates an ILP that simulates the workings of the original
@@ -710,5 +714,3 @@ while ($line = <SATOUT> ) {
    print SAT_FINAL "$line";
 }
 
-# DG we should also add the feature of writing out the target clause. Say w is the last phase, and Xi,w denotes that i Dt operations are allowed
-# by phase w, then we want a clause that says NOT Xi,w to test if fewer than i Dt operations are possible.
