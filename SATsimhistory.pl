@@ -2,13 +2,14 @@
 #
 # This generates an ILP that simulates the workings of the original
 # history-bound alg. The choices I have made in this particular ILP are to
-# make it as easilly converted to SAT as possible. Interwoven now is code to
+# make it as easily converted to SAT as possible. Interwoven now is code to
 # create a CNF formula expressing the proposition that the history bound is <= a given bound.
 # For technical reasons, there is a phase 0 and a phase n+1, but no operations are done in those phases.
 #
 #
-# The input has two parameters, the first is the number of characters in the input matrix, and the second
-# is the file where the matrix is held.
+# The input has three parameters, the first is the number of characters in the input matrix; the second
+# is the file where the matrix is held; and the third is the target for the CNF. The ILP computes
+# the actual history bound and so it's computation does not use the target.
 
 # R(i,k) = 1 means that row i is removed by a Dr operation in phase k, i.e., by a merge
 # RO(i,k) = 1 means that row i is removed by a Dt operation in phase k, i.e., by an arbitrary row removal
@@ -29,7 +30,11 @@ $Dtconstraints = "";
 
 open (IN, $ARGV[1]);
 open (OUT, ">$ARGV[1].lp");
-open (SATOUT, ">$ARGV[1].SAT");
+open (SATOUT, ">sat_temp");
+open (SAT_FINAL, ">$ARGV[1].SAT");
+open (SAT_KEY, ">$ARGV[1].KEY");
+
+$target = $ARGV[2];
 
 while ($line = <IN>) {
 
@@ -38,7 +43,7 @@ while ($line = <IN>) {
   chomp $line;
   } # end while line = <IN>
 $n = @lines;
-print SATOUT "c rows and cols: $n, $m\n";  # the number of rows and colums in the input matrix
+#print SATOUT "c rows and cols: $n, $m\n";  # the number of rows and colums in the input matrix
 
 %inline = ();
 
@@ -65,7 +70,7 @@ foreach $i (1 .. $n) {   # every row can be deleted in at most one phase, either
 
 
 $clausecount = 0;
-print SATOUT "c clauses for the R and RO variables \n";
+#print SATOUT "c clauses for the R and RO variables \n";
 foreach $i (1 .. $n) {
 	foreach $k (1 .. $b-1) {
 		foreach $kprime ($k + 1 .. $b) {   # create the SAT clauses that say that for each i, the operation R(i,k) can only
@@ -161,7 +166,6 @@ foreach $c (0 .. $n) {     # create the needed SAT variables
        $SATinteger++;
      }
 }
-
 
 
  # now create the inequalities that keep count of the number of Dt operations that were done. TRO(c,k) = 1 means that
@@ -685,9 +689,25 @@ print "The number of variables is $SATinteger; the number of clauses is $clausec
 print "The output lp file is file $ARGV[1].lp \n";
 print "The output SAT file is $ARGV[1].SAT \n";
 
-print SATOUT "c variable - key correspondence \n"; #DG this block is placed after all the variable and clause generating code.
+print SAT_KEY "variable - key correspondence \n"; #DG this block is placed after all the variable and clause generating code.
 foreach $key (sort keys %SATvariable) {
-        print SATOUT "$key, $SATvariable{$key} \n";
+        print SAT_KEY "$key, $SATvariable{$key} \n";
+}
+
+$tp1 = $target + 1;              # find the integer representing TRO($target + 1, $b + 1)
+$bp1 = $b + 1;
+$target_integer = $SATvariable{"TRO($tp1,$bp1)"};
+print SATOUT  "-$target_integer 0 \n";
+$clausecount++;
+
+close (SATOUT);
+open (SATOUT, "sat_temp");
+
+
+print SAT_FINAL "p cnf $SATinteger $clausecount \n";
+
+while ($line = <SATOUT> ) {
+   print SAT_FINAL "$line";
 }
 
 # DG we should also add the feature of writing out the target clause. Say w is the last phase, and Xi,w denotes that i Dt operations are allowed
