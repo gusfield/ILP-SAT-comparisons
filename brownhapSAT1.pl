@@ -5,18 +5,27 @@
 # January 7, 2020 modify to remove the objective function from the ILP formulation, and only test
 # if the target is achievable. However, instead of writing this in the simplest ILP way, we write it
 # in a way that is similar to the way that the CNF clauses express this. The reason for doing this
-# is to be able to then automatically convert the ILP formulation to a CNF formulation.
+# is to be able to then automatically convert the ILP formulation to a CNF formulation, which is
+# done with the programs compactlp.pl and remconvertNc.pl.
 #
-# brownhapSAT.pl
-# This implements the generation of the ILP for maximum parsimony haplotyping as
-# specified in the Brown WABI paper. 
-# Dec. 28, 2019.  It also creates the CNF formula to test if a target number of distinct
-# haplotypes is possible.
+# Call the program on a command line as: perl brownhapSAT1.pl input_matrix target
+# The first line of the input_matrix has the name of the matrix (not used in this program).
+# The second line has the number of rows and the number of columns, with a space between the
+# numbers. See the file "datagperm" for an example of an input matrix. The optimal solution value
+# for datagperm is 14 - try it out with both ILP and SAT-solving.
+
+# Dec. 28, 2019.  brownhapSAT.pl 
+# The program is extended to also creates the CNF formula to test if a target number of distinct
+# haplotypes is possible.  
 # derived from brownhap.pl
 #
 #dg
-#11/7/04
+#brownhap.pl developed by DG  11/7/2004
+# This implements the generation of the ILP for maximum parsimony haplotyping as
+# specified in the Brown WABI paper. 
 #
+
+print "IGNORE the above NAME warnings \n";
 
 %index = ();
 %haps = ();
@@ -26,8 +35,9 @@ $hapcount = $tot = $numgens = 0;
 $input = $ARGV[0];
 open IN, "$input";
 open OUT, ">$input.lp";
-open SATOUT, ">$input.SAT";
+open SATOUT, ">tempSAT";
 open OUTKEY, ">$input.KEY";
+open SAT_FINAL, ">$input.SAT";
 $target = $ARGV[1];
 
 $line1 = <IN>;
@@ -270,4 +280,17 @@ foreach $integer (sort {$a <=> $b} keys %TUSATintegervar) {
     print OUTKEY "$integer TU($TUSATintegervar{$integer})\n";
 }
 
-print "$SATinteger  $clausecount \n";
+print SAT_FINAL "p cnf $SATinteger $clausecount \n";
+close (SATOUT);
+open SATOUT, "tempSAT";
+while ($line = <SATOUT>) {
+   print SAT_FINAL "$line";
+}
+close(SAT_FINAL);
+
+
+print "The number of variables and clauses: $SATinteger  $clausecount \n\n";
+print "The ILP formulation is in file $input.lp, and the CNF formulation is in file $input.SAT. \n";
+print "The ILP formulation is ready for solution by ILP solvers from Gurobi or Cplex. \n";
+print "The CNF formulation is in Dimacs format, and hence ready for any SAT-solver that uses the \n";
+print "Dimacs format (which is most of them). We have used SAT-solvers plingeling and glucose-syrup. \n ";
