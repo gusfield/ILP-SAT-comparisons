@@ -1,27 +1,36 @@
 #!/pkg/bin/perl -w
 #use diagnostics
-# brownhap.pl
-# This implements the generation of the ILP for maximum parsimony haplotyping as
-# specified in the Brown WABI paper. 
+# dg modified April 20, 2021
+# brownhapSAT.pl
 # Dec. 28, 2019.  It also creates the CNF formula to test if a target number of distinct
 # haplotypes is possible.
 #
+# Call in a terminal window: perl brownhapSAT.pl input_file target
+# The output files are input_file.lp and input_file.SAT and input_file.KEY.
+# The target is only for the SAT output. The ILP generated is for optimizing maximum parsimony (which is
+# actually a minimization problem. The input_file.KEY file is for debugging the SAT formulation.
+
+# brownhap.pl
+# This implements the generation of the ILP for maximum parsimony haplotyping as
+# specified in the Brown WABI paper. 
 #dg
 #11/7/04
 #
 
 %index = ();
-%haps = ();
-@pairconsts = ();
-$hapcount = $tot = $numgens = 0;
+#%haps = ();
+#@pairconsts = ();
+$hapcount = 0;
 $input = $ARGV[0];
 open IN, "$input";
 open OUT, ">$input.lp";
-open SATOUT, ">$input.SAT";
+open SATOUT, ">temp.SAT";
+#open SATOUT, ">$input.SAT";
 open OUTKEY, ">$input.KEY";
 $target = $ARGV[1];
 
-$line1 = <IN>;
+$line1 = <IN>; # this just eats up the first line in the input file, which is a name for the
+               # dataset, which is not used in this program.
 $line2 = <IN>;
 ($gencount, $sitecount) = split (/ /,$line2);
 print "$gencount, $sitecount\n";
@@ -89,12 +98,12 @@ $clausecount = 0;
      $clausecount = $clausecount + 2;
    }
    elsif ($entry[$k-1] eq '1') {
-     print OUT " y$index1 = 1\n y$index2 = 1\n";
+     print OUT "y$index1 = 1\n y$index2 = 1\n";
      print SATOUT "$ySATvariable{$index1} 0 \n $ySATvariable{$index2} 0 \n";
      $clausecount = $clausecount + 2;
   }
    elsif ($entry[$k-1] eq '0') {
-     print OUT " y$index1 = 0\n y$index2 = 0\n";
+     print OUT "y$index1 = 0\n y$index2 = 0\n";
      print SATOUT "-$ySATvariable{$index1} 0 \n -$ySATvariable{$index2} 0 \n";
      $clausecount = $clausecount + 2;
   }
@@ -247,5 +256,12 @@ print OUTKEY "TU variables \n";
 foreach $integer (sort {$a <=> $b} keys %TUSATintegervar) {
     print OUTKEY "$integer TU$TUSATintegervar{$integer}\n";
 }
+close(OUT);
+close(SATOUT);
+close(OUTKEY);
 
-print "$SATinteger  $clausecount \n";
+
+open(SATSCRATCH, '>satscratch');
+print SATSCRATCH "p cnf $SATinteger  $clausecount \n";
+close(SATSCRATCH);
+system ("cat satscratch temp.SAT > $input.SAT"); 
